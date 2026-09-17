@@ -153,8 +153,7 @@ with col1:
         )
       else:
         with st.spinner(
-            "🎨 Gemini 3.6 Flash is crafting your visual masterpiece (Retrying"
-            " automatically if busy)..."
+            "🎨 Crafting your visual masterpiece via image generation engine..."
         ):
           try:
             client = genai.Client(api_key=api_key)
@@ -162,75 +161,72 @@ with col1:
 
             full_prompt = (
                 f"{prompt}, Style: {style_preset}, Lighting: {lighting_preset},"
-                f" Aspect Ratio: {ratio_code}, professional ultra-high"
-                f" definition rendering. Avoid: {negative_prompt}"
+                f" professional ultra-high definition rendering. Avoid:"
+                f" {negative_prompt}"
             )
 
-            # Auto-retry loop to handle 503 Service Unavailable spikes gracefully
+            # Auto-retry loop to handle 503 / busy exceptions
             response = None
             max_retries = 3
             for attempt in range(max_retries):
               try:
+                # Use dedicated image generation endpoint model configuration
                 response = client.models.generate_content(
-                    model="gemini-3.6-flash",
+                    model="gemini-2.5-flash-image",
                     contents=full_prompt,
                     config=types.GenerateContentConfig(
-                        response_modalities=["IMAGE", "TEXT"]
+                        response_modalities=["IMAGE"],
+                        image_config=types.ImageConfig(
+                            aspect_ratio=ratio_code,
+                        ),
                     ),
                 )
-                break  # Break out of loop if successful
+                break
               except Exception as err:
                 if (
                     "503" in str(err) or "UNAVAILABLE" in str(err)
                 ) and attempt < max_retries - 1:
-                  time.sleep(
-                      2 * (attempt + 1)
-                  )  # Wait 2s, then 4s before retrying
+                  time.sleep(2 * (attempt + 1))
                   continue
                 else:
-                  raise err  # Raise error if retries run out
+                  raise err
 
             image_found = False
-            if response and response.candidates:
-              for candidate in response.candidates:
-                if candidate.content and candidate.content.parts:
-                  for part in candidate.content.parts:
-                    if getattr(part, "inline_data", None) and part.inline_data:
-                      img_bytes = part.inline_data.data
-                      st.image(
-                          img_bytes,
-                          caption=f"Rendered with Gemini 3.6 ({ratio_code})",
-                          use_container_width=True,
-                      )
+            if response and response.parts:
+              for part in response.parts:
+                if getattr(part, "inline_data", None) and part.inline_data:
+                  img_bytes = part.inline_data.data
+                  st.image(
+                      img_bytes,
+                      caption=(
+                          f"Generated Masterpiece ({ratio_code} -"
+                          f" {style_preset})"
+                      ),
+                      use_container_width=True,
+                  )
 
-                      st.download_button(
-                          label="📥 Download High-Res Image",
-                          data=img_bytes,
-                          file_name=f"artisan_ai_3.6_{ratio_code.replace(':', '-')}.jpg",
-                          mime="image/jpeg",
-                      )
+                  st.download_button(
+                      label="📥 Download High-Res Image",
+                      data=img_bytes,
+                      file_name=f"artisan_ai_{ratio_code.replace(':', '-')}.jpg",
+                      mime="image/jpeg",
+                  )
 
-                      image_found = True
-                      if "history" not in st.session_state:
-                        st.session_state.history = []
-                      st.session_state.history.append(
-                          (img_bytes, ratio_code, style_preset)
-                      )
+                  image_found = True
+                  if "history" not in st.session_state:
+                    st.session_state.history = []
+                  st.session_state.history.append(
+                      (img_bytes, ratio_code, style_preset)
+                  )
 
             if not image_found:
-              if response and response.text:
-                st.info(f"Model Output Response: {response.text}")
-              else:
-                st.warning(
-                    "No image data returned from the model. Please adjust your"
-                    " prompt and try again."
-                )
+              st.warning(
+                  "No image data returned from the model. Please adjust your"
+                  " prompt and try again."
+              )
 
           except Exception as e:
-            st.error(
-                f"Generation error: {e}. The server is busy right now. Please"
-                " wait a moment and click generate again."
-            )
+            st.error(f"Generation error: {e}")
     else:
       st.info(
           "👉 Use the **AI Prompt Maker** on the sidebar to build your idea or"
@@ -242,8 +238,8 @@ with col2:
   st.markdown(
       """
     <div class="metric-card">
-        <b style="color: #ec4899;">Model:</b> Gemini 3.6 Flash<br>
-        <b style="color: #8b5cf6;">Feature:</b> Auto-Retry & Error Shield<br>
+        <b style="color: #ec4899;">Model:</b> Gemini Image Engine<br>
+        <b style="color: #8b5cf6;">Feature:</b> Prompt Maker + Native Image Generator<br>
         <b style="color: #3b82f6;">Cost:</b> 100% Free API Tier
     </div>
     """,
@@ -269,6 +265,6 @@ with col2:
 st.markdown("---")
 st.markdown(
     "<p style='text-align: center; color: #94a3b8;'>Artisan AI Studio Pro"
-    " — Powered by Gemini 3.6 Flash & Streamlit</p>",
+    " — Powered by Gemini & Streamlit</p>",
     unsafe_allow_html=True,
 )
