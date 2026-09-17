@@ -1,275 +1,204 @@
 import os
-import time
 from google import genai
 from google.genai import types
 import streamlit as st
 
-# Page Configuration
+# ==========================================
+# Configuration & Setup
+# ==========================================
 st.set_page_config(
-    page_title="Artisan AI Studio Pro", page_icon="🎨", layout="wide"
+    page_title="Artisan AI Prompt Studio", page_icon="✍️", layout="wide"
 )
 
-# Colorful Professional Custom CSS
+# Define the standard text model used for free tier access
+# Note: gemini-2.5-flash is used for high-speed, free tier operations.
+FASTER_MODEL = "gemini-2.5-flash"
+
+# Custom Professional Styling
 st.markdown(
     """
     <style>
-    .stApp {
-        background: linear-gradient(135deg, #090d16 0%, #111827 100%);
-        color: #f3f4f6;
-    }
-    .sidebar .stSidebar {
-        background-color: #0f172a;
-        border-right: 1px solid #1e293b;
-    }
+    .stApp { background-color: #0e1117; color: #ffffff; }
+    .sidebar .stSidebar { background-color: #161b22; }
     div.stButton > button:first-child {
-        background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
-        color: white;
-        border: none;
-        width: 100%;
-        font-weight: bold;
-        border-radius: 10px;
-        padding: 0.7rem;
-        box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
-        transition: all 0.3s ease;
+        background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+        color: white; border: none; border-radius: 8px; font-weight: bold;
     }
-    div.stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
-    }
-    .metric-card {
-        background: rgba(30, 41, 59, 0.7);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        padding: 15px;
-        border-radius: 12px;
+    .stTextArea textarea { color: #e0e7ff; background-color: #1e293b; }
+    .history-box {
+        padding: 10px; border-radius: 5px; background-color: #1e293b;
+        margin-bottom: 10px; border: 1px solid #334155;
     }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# Initialize Gemini Client securely via Streamlit Secrets
+# Initialize Gemini Client
 api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
 
-# Main Title Header
+# Session State Management
+if "creative_output" not in st.session_state:
+  st.session_state.creative_output = ""
+if "prompt_history" not in st.session_state:
+  st.session_state.prompt_history = []
+
+# ==========================================
+# Helper Functions
+# ==========================================
+
+
+def call_gemini_api(prompt, system_instruction):
+  """Handles the API call to Gemini using the standard text model."""
+  if not api_key:
+    st.error("Gemini API Key not found. Please configure Streamlit Secrets.")
+    return None
+  try:
+    client = genai.Client(api_key=api_key)
+    response = client.models.generate_content(
+        model=FASTER_MODEL,
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=system_instruction,
+            temperature=0.7,  # Creative but controlled
+            max_output_tokens=1000,
+        ),
+    )
+    return response.text.strip()
+  except Exception as e:
+    st.error(f"API Error: {e}")
+    return None
+
+
+def add_to_history(tool_name, input_text, output_text):
+  """Saves interaction to session state history."""
+  st.session_state.prompt_history.append(
+      {
+          "tool": tool_name,
+          "input": input_text[:50] + "...",
+          "output": output_text,
+      }
+  )
+
+
+# ==========================================
+# Main UI Layout
+# ==========================================
+st.title("✍️ Artisan AI Prompt & Copywriting Studio")
 st.markdown(
-    "## ⚡ Artisan AI Studio <span style='font-size: 16px; background:"
-    " linear-gradient(90deg, #ec4899, #8b5cf6); -webkit-background-clip:"
-    " text; -webkit-text-fill-color: transparent;'>PROMPT MAKER & GENERATOR</span>",
-    unsafe_allow_html=True,
+    "Professional copywriting tools powered by Gemini Standard Text Models."
 )
 st.markdown("---")
 
-# Session State for Prompt Storage
-if "master_prompt" not in st.session_state:
-  st.session_state.master_prompt = (
-      "Cyberpunk female warrior standing on a neon-lit skyscraper rooftop,"
-      " dramatic rain, highly detailed, 8k resolution"
-  )
+# Layout: 3 Columns
+col1, col2, col3 = st.columns([1, 1.5, 1])
 
-# Layout: Sidebar Controls
-with st.sidebar:
-  st.markdown("### ✍️ AI Prompt Maker")
-  raw_idea = st.text_input(
-      "Enter a simple idea:",
-      value="futuristic sports car",
-      help="Type a basic concept, and Gemini will expand it into a pro prompt.",
-  )
-
-  if st.button("🔮 Enhance with AI Prompt Maker"):
-    if not api_key:
-      st.error("API Key missing!")
-    else:
-      with st.spinner("Crafting professional prompt..."):
-        try:
-          client = genai.Client(api_key=api_key)
-          enhancer_response = client.models.generate_content(
-              model="gemini-3.6-flash",
-              contents=(
-                  "Act as an expert prompt engineer for AI image generation."
-                  f" Take this simple idea: '{raw_idea}' and write a highly"
-                  " detailed, descriptive, professional image prompt with"
-                  " artistic styling. Return ONLY the final prompt text without"
-                  " conversational filler."
-              ),
-          )
-          if enhancer_response.text:
-            st.session_state.master_prompt = enhancer_response.text.strip()
-            st.success("Prompt successfully crafted!")
-        except Exception as e:
-          st.error(f"Error enhancing prompt: {e}")
-
-  st.markdown("---")
-  st.markdown("### 🎛️ Final Master Prompt")
-  prompt = st.text_area(
-      "Editable Prompt", value=st.session_state.master_prompt, height=100
-  )
-
-  negative_prompt = st.text_area(
-      "Negative Prompt",
-      value="blurry, low quality, distorted, deformed, extra limbs",
-      height=70,
-  )
-
-  st.markdown("### ⚙️ Studio Settings")
-  aspect_ratio = st.selectbox(
-      "Aspect Ratio", ["1:1 (Square)", "16:9 (Landscape)", "9:16 (Portrait)"]
-  )
-  style_preset = st.selectbox(
-      "Style Preset",
-      [
-          "Cyberpunk Neon",
-          "Cinematic Blockbuster",
-          "Photorealistic Portrait",
-          "Anime Fantasy",
-          "Digital Masterpiece",
-      ],
-  )
-  lighting_preset = st.selectbox(
-      "Lighting Atmosphere",
-      [
-          "Volumetric Neon Glow",
-          "Golden Hour Sunset",
-          "Moody Cinematic Shadows",
-          "Studio Softbox",
-      ],
-  )
-
-  st.markdown("---")
-  generate_btn = st.button("✨ Generate Free Artwork")
-
-# Main Workspace Canvas
-col1, col2 = st.columns([2, 1])
-
+# --- Column 1: Toolkit Menu ---
 with col1:
-  st.markdown("#### 🖼️ Live Preview Canvas")
-  canvas_container = st.container()
-
-  with canvas_container:
-    if generate_btn:
-      if not api_key:
-        st.error(
-            "⚠️ Gemini API Key not found! Please add it to your Streamlit"
-            " Secrets."
-        )
-      else:
-        with st.spinner(
-            "🎨 Crafting your visual masterpiece via Nano Banana 2 engine..."
-        ):
-          try:
-            client = genai.Client(api_key=api_key)
-            ratio_code = aspect_ratio.split(" ")[0]
-
-            full_prompt = (
-                f"{prompt}, Style: {style_preset}, Lighting: {lighting_preset},"
-                f" professional ultra-high definition rendering. Avoid:"
-                f" {negative_prompt}"
-            )
-
-            # Auto-retry loop to handle 429/503 limits gracefully
-            response = None
-            max_retries = 3
-            for attempt in range(max_retries):
-              try:
-                # Use gemini-3.1-flash-image-preview (Nano Banana 2)
-                response = client.models.generate_content(
-                    model="gemini-3.1-flash-image-preview",
-                    contents=full_prompt,
-                    config=types.GenerateContentConfig(
-                        response_modalities=["IMAGE"],
-                        image_config=types.ImageConfig(
-                            aspect_ratio=ratio_code,
-                        ),
-                    ),
-                )
-                break
-              except Exception as err:
-                if (
-                    "429" in str(err)
-                    or "503" in str(err)
-                    or "RESOURCE_EXHAUSTED" in str(err)
-                ) and attempt < max_retries - 1:
-                  time.sleep(5 * (attempt + 1))  # Back off for rate limits
-                  continue
-                else:
-                  raise err
-
-            image_found = False
-            if response and response.parts:
-              for part in response.parts:
-                if getattr(part, "inline_data", None) and part.inline_data:
-                  img_bytes = part.inline_data.data
-                  st.image(
-                      img_bytes,
-                      caption=(
-                          f"Generated Masterpiece ({ratio_code} -"
-                          f" {style_preset})"
-                      ),
-                      use_container_width=True,
-                  )
-
-                  st.download_button(
-                      label="📥 Download High-Res Image",
-                      data=img_bytes,
-                      file_name=f"artisan_ai_{ratio_code.replace(':', '-')}.jpg",
-                      mime="image/jpeg",
-                  )
-
-                  image_found = True
-                  if "history" not in st.session_state:
-                    st.session_state.history = []
-                  st.session_state.history.append(
-                      (img_bytes, ratio_code, style_preset)
-                  )
-
-            if not image_found:
-              st.warning(
-                  "No image data returned from the model. Please check your"
-                  " project quota limits at Google AI Studio."
-              )
-
-          except Exception as e:
-            st.error(
-                f"Generation error: {e}. Check your project billing or rate"
-                " limits on aistudio.google.com."
-            )
-    else:
-      st.info(
-          "👉 Use the **AI Prompt Maker** on the sidebar to build your idea or"
-          " click **'Generate Free Artwork'** to start."
-      )
-
-with col2:
-  st.markdown("#### 🚀 Studio Specs & Engine")
-  st.markdown(
-      """
-    <div class="metric-card">
-        <b style="color: #ec4899;">Model:</b> Gemini 3.1 Flash Image (Nano Banana 2)<br>
-        <b style="color: #8b5cf6;">Feature:</b> Prompt Maker + Native Image Generator<br>
-        <b style="color: #3b82f6;">Tier:</b> Free / Standard Quota
-    </div>
-    """,
-      unsafe_allow_html=True,
+  st.subheader("🧰 Toolkit")
+  selected_tool = st.radio(
+      "Choose your craft:",
+      [
+          "AI Image Prompt Crafter",
+          "Marketing Copywriter",
+          "Blog Post Outline",
+          "Email Subject Line Generator",
+      ],
   )
 
-  st.markdown("#### 🕒 Session Gallery")
-  if "history" in st.session_state and st.session_state.history:
-    for idx, item in enumerate(reversed(st.session_state.history[-3:])):
-      img_bytes, ratio, style = item
-      st.image(img_bytes, width=150, caption=f"{style} ({ratio})")
-      st.download_button(
-          label=f"📥 Download #{idx+1}",
-          data=img_bytes,
-          file_name=f"artisan_gallery_{idx}.jpg",
-          mime="image/jpeg",
-          key=f"history_dl_{idx}",
-      )
+  st.markdown("---")
+  input_text = st.text_area(
+      "Enter your core concept or topic:",
+      placeholder="E.g., A futuristic city at sunset...",
+      height=150,
+  )
+
+  generate_btn = st.button("✨ Craft Content")
+
+# --- Column 2: Workspace Canvas ---
+with col2:
+  st.subheader("📄 Workspace")
+
+  if generate_btn and input_text:
+    with st.spinner(f"Artisan AI is crafting your {selected_tool}..."):
+      result = None
+      # Route to specific model instructions based on selected tool
+      if selected_tool == "AI Image Prompt Crafter":
+        system_instruction = (
+            "Act as an expert AI image prompt engineer. Take the core concept"
+            " and expand it into a highly detailed, descriptive prompt suitable"
+            " for high-end AI image generators (like Midjourney or Imagen)."
+            " Focus on lighting, composition, art style, and resolution. Return"
+            " ONLY the prompt text."
+        )
+        result = call_gemini_api(input_text, system_instruction)
+
+      elif selected_tool == "Marketing Copywriter":
+        system_instruction = (
+            "Act as a professional direct-response copywriter. Write persuasive"
+            " marketing copy (AIDA framework) for the provided concept. Highlight"
+            " benefits and include a call to action."
+        )
+        result = call_gemini_api(input_text, system_instruction)
+
+      elif selected_tool == "Blog Post Outline":
+        system_instruction = (
+            "Act as a content strategist. Create a structured, detailed blog"
+            " post outline based on the provided topic, including catchy H2/H3"
+            " headers and key points for each section."
+        )
+        result = call_gemini_api(input_text, system_instruction)
+
+      elif selected_tool == "Email Subject Line Generator":
+        system_instruction = (
+            "Act as an email marketing specialist. Generate 5 highly engaging,"
+            " high-open-rate email subject lines for the provided topic."
+        )
+        result = call_gemini_api(input_text, system_instruction)
+
+      if result:
+        st.session_state.creative_output = result
+        add_to_history(selected_tool, input_text, result)
+
+  # Display the editable output area
+  st.text_area(
+      "Generated Content:",
+      value=st.session_state.creative_output,
+      height=400,
+      key="output_display",
+  )
+
+  # Provide download and clear buttons
+  if st.session_state.creative_output:
+    st.download_button(
+        label="💾 Download Result",
+        data=st.session_state.creative_output,
+        file_name="artisan_ai_output.txt",
+        mime="text/plain",
+    )
+  if st.button("🗑️ Clear Workspace"):
+    st.session_state.creative_output = ""
+    st.rerun()
+
+# --- Column 3: History Log ---
+with col3:
+  st.subheader("🕒 History Log")
+  if not st.session_state.prompt_history:
+    st.info("Your recent generations will appear here.")
   else:
-    st.text("No creations in session yet.")
+    # Display history in reverse chronological order
+    for i, item in enumerate(reversed(st.session_state.prompt_history)):
+      with st.expander(f"{item['tool']} — {item['input']}"):
+        st.markdown(f"**Output:** {item['output']}")
+        # Add a button to restore this history item to the workspace
+        if st.button("📤 Load to Workspace", key=f"load_hist_{i}"):
+          st.session_state.creative_output = item["output"]
+          st.rerun()
 
 # Footer
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: #94a3b8;'>Artisan AI Studio Pro"
-    " — Powered by Gemini & Streamlit</p>",
+    "<p style='text-align: center; color: gray;'>Artisan AI Studio — Built"
+    " with Gemini Nano (Free Tier) & Streamlit</p>",
     unsafe_allow_html=True,
 )
