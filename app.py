@@ -1,4 +1,3 @@
-import io
 import os
 from google import genai
 from google.genai import types
@@ -6,31 +5,41 @@ import streamlit as st
 
 # Page Configuration
 st.set_page_config(
-    page_title="Artisan AI Studio", page_icon="🎨", layout="wide"
+    page_title="Artisan AI Studio Pro", page_icon="🎨", layout="wide"
 )
 
-# Custom CSS for a professional dark studio look
+# Colorful Professional Custom CSS (Neon Gradients & Glassmorphism)
 st.markdown(
     """
     <style>
     .stApp {
-        background-color: #0e1117;
-        color: #ffffff;
+        background: linear-gradient(135deg, #090d16 0%, #111827 100%);
+        color: #f3f4f6;
     }
     .sidebar .stSidebar {
-        background-color: #161b22;
+        background-color: #0f172a;
+        border-right: 1px solid #1e293b;
     }
     div.stButton > button:first-child {
-        background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+        background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 50%, #3b82f6 100%);
         color: white;
         border: none;
         width: 100%;
         font-weight: bold;
-        border-radius: 8px;
-        padding: 0.6rem;
+        border-radius: 10px;
+        padding: 0.7rem;
+        box-shadow: 0 4px 15px rgba(236, 72, 153, 0.4);
+        transition: all 0.3s ease;
     }
     div.stButton > button:hover {
-        opacity: 0.9;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+    }
+    .metric-card {
+        background: rgba(30, 41, 59, 0.7);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        padding: 15px;
+        border-radius: 12px;
     }
     </style>
 """,
@@ -40,40 +49,60 @@ st.markdown(
 # Initialize Gemini Client securely via Streamlit Secrets
 api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
 
-# Main Title Header
-st.markdown("## ⚡ Artisan AI Studio")
+# Main Title Header with Neon Accent
+st.markdown(
+    "## ⚡ Artisan AI Studio <span style='font-size: 16px; background:"
+    " linear-gradient(90deg, #ec4899, #8b5cf6); -webkit-background-clip:"
+    " text; -webkit-text-fill-color: transparent;'>PRO 3.6</span>",
+    unsafe_allow_html=True,
+)
 st.markdown("---")
 
-# Layout: Sidebar for controls, Main area for canvas
+# Layout: Sidebar Controls
 with st.sidebar:
   st.markdown("### 🎛️ Prompt Engineering")
   prompt = st.text_area(
       "Master Prompt",
       value=(
-          "Cinematic shot of a futuristic neon sports car racing through a"
-          " cyberpunk city at night, highly detailed, 8k resolution"
+          "Cyberpunk female warrior standing on a neon-lit skyscraper rooftop,"
+          " dramatic rain, holographic displays, highly detailed, 8k"
+          " resolution"
       ),
       height=100,
   )
 
   negative_prompt = st.text_area(
       "Negative Prompt",
-      value="blurry, low quality, distorted, deformed, extra limbs, bad anatomy",
+      value="blurry, low quality, distorted, deformed, extra limbs",
       height=80,
-      help="Specify elements you want to exclude from the image.",
   )
 
-  st.markdown("### ⚙️ Image Settings")
+  st.markdown("### ⚙️ Studio Settings")
   aspect_ratio = st.selectbox(
       "Aspect Ratio", ["1:1 (Square)", "16:9 (Landscape)", "9:16 (Portrait)"]
   )
   style_preset = st.selectbox(
       "Style Preset",
-      ["Photorealistic", "Cinematic", "Cyberpunk", "Anime", "Digital Art"],
+      [
+          "Cyberpunk Neon",
+          "Cinematic Blockbuster",
+          "Photorealistic Portrait",
+          "Anime Fantasy",
+          "Digital Masterpiece",
+      ],
+  )
+  lighting_preset = st.selectbox(
+      "Lighting Atmosphere",
+      [
+          "Volumetric Neon Glow",
+          "Golden Hour Sunset",
+          "Moody Cinematic Shadows",
+          "Studio Softbox",
+      ],
   )
 
   st.markdown("---")
-  generate_btn = st.button("✨ Generate Artwork")
+  generate_btn = st.button("✨ Generate Masterpiece")
 
 # Main Workspace Canvas
 col1, col2 = st.columns([2, 1])
@@ -91,23 +120,22 @@ with col1:
         )
       else:
         with st.spinner(
-            "🎨 Artisan AI is rendering your masterpiece... Please wait."
+            "🎨 Gemini 3.6 Flash is crafting your visual masterpiece..."
         ):
           try:
             client = genai.Client(api_key=api_key)
-
-            # Map the selected aspect ratio option (e.g., "16:9 (Landscape)" -> "16:9")
             ratio_code = aspect_ratio.split(" ")[0]
 
-            # Combine elements into a comprehensive prompt payload
+            # Upgraded prompt injection including lighting and negative parameters
             full_prompt = (
-                f"{prompt}, Style: {style_preset}, Aspect Ratio: {ratio_code},"
-                f" highly detailed, professional digital rendering. Avoid:"
-                f" {negative_prompt}"
+                f"{prompt}, Style: {style_preset}, Lighting: {lighting_preset},"
+                f" Aspect Ratio: {ratio_code}, professional ultra-high"
+                f" definition rendering. Avoid: {negative_prompt}"
             )
 
+            # Updated to use gemini-3.6-flash per current API availability
             response = client.models.generate_content(
-                model="gemini-2.5-flash",
+                model="gemini-3.6-flash",
                 contents=full_prompt,
                 config=types.GenerateContentConfig(
                     response_modalities=["IMAGE", "TEXT"]
@@ -123,16 +151,14 @@ with col1:
                       img_bytes = part.inline_data.data
                       st.image(
                           img_bytes,
-                          caption=(
-                              f"Generated ({ratio_code}): {prompt[:30]}..."
-                          ),
+                          caption=f"Rendered with Gemini 3.6 ({ratio_code})",
                           use_container_width=True,
                       )
 
                       st.download_button(
-                          label="📥 Download Masterpiece",
+                          label="📥 Download High-Res Image",
                           data=img_bytes,
-                          file_name=f"artisan_ai_{ratio_code.replace(':', '-')}.jpg",
+                          file_name=f"artisan_ai_3.6_{ratio_code.replace(':', '-')}.jpg",
                           mime="image/jpeg",
                       )
 
@@ -140,7 +166,7 @@ with col1:
                       if "history" not in st.session_state:
                         st.session_state.history = []
                       st.session_state.history.append(
-                          (img_bytes, ratio_code)
+                          (img_bytes, ratio_code, style_preset)
                       )
 
             if not image_found:
@@ -156,39 +182,42 @@ with col1:
             st.error(f"An error occurred during generation: {e}")
     else:
       st.info(
-          "👉 Configure your settings in the sidebar and click **'Generate"
-          " Artwork'** to start."
+          "👉 Configure your studio settings in the sidebar and click"
+          " **'Generate Masterpiece'** to start."
       )
 
 with col2:
-  st.markdown("#### 📁 Quick Info & Specs")
+  st.markdown("#### 🚀 Studio Specs & Engine")
   st.markdown(
       """
-    * **Engine:** Google GenAI Developer API
-    * **Mode:** Studio Pro Workspace
-    * **Resolution:** High-Definition
-    """
+    <div class="metric-card">
+        <b style="color: #ec4899;">Model:</b> Gemini 3.6 Flash<br>
+        <b style="color: #8b5cf6;">Pipeline:</b> Multimodal GenAI<br>
+        <b style="color: #3b82f6;">Quality:</b> Ultra HD Pro
+    </div>
+    """,
+      unsafe_allow_html=True,
   )
 
-  st.markdown("#### 🕒 Recent Session Gallery")
+  st.markdown("#### 🕒 Session Gallery")
   if "history" in st.session_state and st.session_state.history:
     for idx, item in enumerate(reversed(st.session_state.history[-3:])):
-      img_bytes, ratio = item
-      st.image(img_bytes, width=150, caption=f"Ratio: {ratio}")
+      img_bytes, ratio, style = item
+      st.image(img_bytes, width=150, caption=f"{style} ({ratio})")
       st.download_button(
-          label=f"📥 Download ({ratio})",
+          label=f"📥 Download #{idx+1}",
           data=img_bytes,
-          file_name=f"artwork_{idx}_{ratio.replace(':', '-')}.jpg",
+          file_name=f"artisan_gallery_{idx}.jpg",
           mime="image/jpeg",
-          key=f"history_download_{idx}",
+          key=f"history_dl_{idx}",
       )
   else:
-    st.text("No history yet.")
+    st.text("No creations in session yet.")
 
 # Footer
 st.markdown("---")
 st.markdown(
-    "<p style='text-align: center; color: gray;'>Artisan AI Studio — Built"
-    " with Streamlit & Google GenAI SDK</p>",
+    "<p style='text-align: center; color: #94a3b8;'>Artisan AI Studio Pro"
+    " — Powered by Gemini 3.6 Flash & Streamlit</p>",
     unsafe_allow_html=True,
 )
