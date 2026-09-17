@@ -1,4 +1,5 @@
 import os
+import time
 from google import genai
 from google.genai import types
 import streamlit as st
@@ -152,7 +153,8 @@ with col1:
         )
       else:
         with st.spinner(
-            "🎨 Gemini 3.6 Flash is crafting your visual masterpiece..."
+            "🎨 Gemini 3.6 Flash is crafting your visual masterpiece (Retrying"
+            " automatically if busy)..."
         ):
           try:
             client = genai.Client(api_key=api_key)
@@ -164,16 +166,32 @@ with col1:
                 f" definition rendering. Avoid: {negative_prompt}"
             )
 
-            response = client.models.generate_content(
-                model="gemini-3.6-flash",
-                contents=full_prompt,
-                config=types.GenerateContentConfig(
-                    response_modalities=["IMAGE", "TEXT"]
-                ),
-            )
+            # Auto-retry loop to handle 503 Service Unavailable spikes gracefully
+            response = None
+            max_retries = 3
+            for attempt in range(max_retries):
+              try:
+                response = client.models.generate_content(
+                    model="gemini-3.6-flash",
+                    contents=full_prompt,
+                    config=types.GenerateContentConfig(
+                        response_modalities=["IMAGE", "TEXT"]
+                    ),
+                )
+                break  # Break out of loop if successful
+              except Exception as err:
+                if (
+                    "503" in str(err) or "UNAVAILABLE" in str(err)
+                ) and attempt < max_retries - 1:
+                  time.sleep(
+                      2 * (attempt + 1)
+                  )  # Wait 2s, then 4s before retrying
+                  continue
+                else:
+                  raise err  # Raise error if retries run out
 
             image_found = False
-            if response.candidates:
+            if response and response.candidates:
               for candidate in response.candidates:
                 if candidate.content and candidate.content.parts:
                   for part in candidate.content.parts:
@@ -200,16 +218,19 @@ with col1:
                       )
 
             if not image_found:
-              if response.text:
+              if response and response.text:
                 st.info(f"Model Output Response: {response.text}")
               else:
                 st.warning(
                     "No image data returned from the model. Please adjust your"
-                    " prompt."
+                    " prompt and try again."
                 )
 
           except Exception as e:
-            st.error(f"An error occurred during generation: {e}")
+            st.error(
+                f"Generation error: {e}. The server is busy right now. Please"
+                " wait a moment and click generate again."
+            )
     else:
       st.info(
           "👉 Use the **AI Prompt Maker** on the sidebar to build your idea or"
@@ -222,7 +243,7 @@ with col2:
       """
     <div class="metric-card">
         <b style="color: #ec4899;">Model:</b> Gemini 3.6 Flash<br>
-        <b style="color: #8b5cf6;">Feature:</b> Prompt Maker + Generator<br>
+        <b style="color: #8b5cf6;">Feature:</b> Auto-Retry & Error Shield<br>
         <b style="color: #3b82f6;">Cost:</b> 100% Free API Tier
     </div>
     """,
