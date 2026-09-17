@@ -10,9 +10,8 @@ st.set_page_config(
     page_title="Artisan AI Prompt Studio", page_icon="✍️", layout="wide"
 )
 
-# Define the standard text model used for free tier access
-# Note: gemini-2.5-flash is used for high-speed, free tier operations.
-FASTER_MODEL = "gemini-2.5-flash"
+# Updated standard text model for free tier access
+FASTER_MODEL = "gemini-3.6-flash"
 
 # Custom Professional Styling
 st.markdown(
@@ -43,11 +42,10 @@ if "creative_output" not in st.session_state:
 if "prompt_history" not in st.session_state:
   st.session_state.prompt_history = []
 
+
 # ==========================================
 # Helper Functions
 # ==========================================
-
-
 def call_gemini_api(prompt, system_instruction):
   """Handles the API call to Gemini using the standard text model."""
   if not api_key:
@@ -60,7 +58,7 @@ def call_gemini_api(prompt, system_instruction):
         contents=prompt,
         config=types.GenerateContentConfig(
             system_instruction=system_instruction,
-            temperature=0.7,  # Creative but controlled
+            temperature=0.7,
             max_output_tokens=1000,
         ),
     )
@@ -85,9 +83,7 @@ def add_to_history(tool_name, input_text, output_text):
 # Main UI Layout
 # ==========================================
 st.title("✍️ Artisan AI Prompt & Copywriting Studio")
-st.markdown(
-    "Professional copywriting tools powered by Gemini Standard Text Models."
-)
+st.markdown("Professional copywriting tools powered by Gemini 3.6 Flash.")
 st.markdown("---")
 
 # Layout: 3 Columns
@@ -122,7 +118,6 @@ with col2:
   if generate_btn and input_text:
     with st.spinner(f"Artisan AI is crafting your {selected_tool}..."):
       result = None
-      # Route to specific model instructions based on selected tool
       if selected_tool == "AI Image Prompt Crafter":
         system_instruction = (
             "Act as an expert AI image prompt engineer. Take the core concept"
@@ -160,7 +155,6 @@ with col2:
         st.session_state.creative_output = result
         add_to_history(selected_tool, input_text, result)
 
-  # Display the editable output area
   st.text_area(
       "Generated Content:",
       value=st.session_state.creative_output,
@@ -168,7 +162,6 @@ with col2:
       key="output_display",
   )
 
-  # Provide download and clear buttons
   if st.session_state.creative_output:
     st.download_button(
         label="💾 Download Result",
@@ -186,11 +179,9 @@ with col3:
   if not st.session_state.prompt_history:
     st.info("Your recent generations will appear here.")
   else:
-    # Display history in reverse chronological order
     for i, item in enumerate(reversed(st.session_state.prompt_history)):
       with st.expander(f"{item['tool']} — {item['input']}"):
         st.markdown(f"**Output:** {item['output']}")
-        # Add a button to restore this history item to the workspace
         if st.button("📤 Load to Workspace", key=f"load_hist_{i}"):
           st.session_state.creative_output = item["output"]
           st.rerun()
@@ -199,6 +190,6 @@ with col3:
 st.markdown("---")
 st.markdown(
     "<p style='text-align: center; color: gray;'>Artisan AI Studio — Built"
-    " with Gemini Nano (Free Tier) & Streamlit</p>",
+    " with Gemini 3.6 Flash & Streamlit</p>",
     unsafe_allow_html=True,
 )
