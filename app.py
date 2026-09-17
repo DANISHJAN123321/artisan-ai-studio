@@ -8,7 +8,7 @@ st.set_page_config(
     page_title="Artisan AI Studio Pro", page_icon="🎨", layout="wide"
 )
 
-# Colorful Professional Custom CSS (Neon Gradients & Glassmorphism)
+# Colorful Professional Custom CSS
 st.markdown(
     """
     <style>
@@ -49,32 +49,64 @@ st.markdown(
 # Initialize Gemini Client securely via Streamlit Secrets
 api_key = st.secrets.get("GEMINI_API_KEY") or os.environ.get("GEMINI_API_KEY")
 
-# Main Title Header with Neon Accent
+# Main Title Header
 st.markdown(
     "## ⚡ Artisan AI Studio <span style='font-size: 16px; background:"
     " linear-gradient(90deg, #ec4899, #8b5cf6); -webkit-background-clip:"
-    " text; -webkit-text-fill-color: transparent;'>PRO 3.6</span>",
+    " text; -webkit-text-fill-color: transparent;'>PROMPT MAKER & GENERATOR</span>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
 
+# Session State for Prompt Storage
+if "master_prompt" not in st.session_state:
+  st.session_state.master_prompt = (
+      "Cyberpunk female warrior standing on a neon-lit skyscraper rooftop,"
+      " dramatic rain, highly detailed, 8k resolution"
+  )
+
 # Layout: Sidebar Controls
 with st.sidebar:
-  st.markdown("### 🎛️ Prompt Engineering")
+  st.markdown("### ✍️ AI Prompt Maker")
+  raw_idea = st.text_input(
+      "Enter a simple idea:",
+      value="futuristic sports car",
+      help="Type a basic concept, and Gemini will expand it into a pro prompt.",
+  )
+
+  if st.button("🔮 Enhance with AI Prompt Maker"):
+    if not api_key:
+      st.error("API Key missing!")
+    else:
+      with st.spinner("Crafting professional prompt..."):
+        try:
+          client = genai.Client(api_key=api_key)
+          enhancer_response = client.models.generate_content(
+              model="gemini-3.6-flash",
+              contents=(
+                  "Act as an expert prompt engineer for AI image generation."
+                  f" Take this simple idea: '{raw_idea}' and write a highly"
+                  " detailed, descriptive, professional image prompt with"
+                  " artistic styling. Return ONLY the final prompt text without"
+                  " conversational filler."
+              ),
+          )
+          if enhancer_response.text:
+            st.session_state.master_prompt = enhancer_response.text.strip()
+            st.success("Prompt successfully crafted!")
+        except Exception as e:
+          st.error(f"Error enhancing prompt: {e}")
+
+  st.markdown("---")
+  st.markdown("### 🎛️ Final Master Prompt")
   prompt = st.text_area(
-      "Master Prompt",
-      value=(
-          "Cyberpunk female warrior standing on a neon-lit skyscraper rooftop,"
-          " dramatic rain, holographic displays, highly detailed, 8k"
-          " resolution"
-      ),
-      height=100,
+      "Editable Prompt", value=st.session_state.master_prompt, height=100
   )
 
   negative_prompt = st.text_area(
       "Negative Prompt",
       value="blurry, low quality, distorted, deformed, extra limbs",
-      height=80,
+      height=70,
   )
 
   st.markdown("### ⚙️ Studio Settings")
@@ -102,7 +134,7 @@ with st.sidebar:
   )
 
   st.markdown("---")
-  generate_btn = st.button("✨ Generate Masterpiece")
+  generate_btn = st.button("✨ Generate Free Artwork")
 
 # Main Workspace Canvas
 col1, col2 = st.columns([2, 1])
@@ -126,14 +158,12 @@ with col1:
             client = genai.Client(api_key=api_key)
             ratio_code = aspect_ratio.split(" ")[0]
 
-            # Upgraded prompt injection including lighting and negative parameters
             full_prompt = (
                 f"{prompt}, Style: {style_preset}, Lighting: {lighting_preset},"
                 f" Aspect Ratio: {ratio_code}, professional ultra-high"
                 f" definition rendering. Avoid: {negative_prompt}"
             )
 
-            # Updated to use gemini-3.6-flash per current API availability
             response = client.models.generate_content(
                 model="gemini-3.6-flash",
                 contents=full_prompt,
@@ -182,8 +212,8 @@ with col1:
             st.error(f"An error occurred during generation: {e}")
     else:
       st.info(
-          "👉 Configure your studio settings in the sidebar and click"
-          " **'Generate Masterpiece'** to start."
+          "👉 Use the **AI Prompt Maker** on the sidebar to build your idea or"
+          " click **'Generate Free Artwork'** to start."
       )
 
 with col2:
@@ -192,8 +222,8 @@ with col2:
       """
     <div class="metric-card">
         <b style="color: #ec4899;">Model:</b> Gemini 3.6 Flash<br>
-        <b style="color: #8b5cf6;">Pipeline:</b> Multimodal GenAI<br>
-        <b style="color: #3b82f6;">Quality:</b> Ultra HD Pro
+        <b style="color: #8b5cf6;">Feature:</b> Prompt Maker + Generator<br>
+        <b style="color: #3b82f6;">Cost:</b> 100% Free API Tier
     </div>
     """,
       unsafe_allow_html=True,
