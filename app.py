@@ -153,7 +153,7 @@ with col1:
         )
       else:
         with st.spinner(
-            "🎨 Crafting your visual masterpiece via image generation engine..."
+            "🎨 Crafting your visual masterpiece via Nano Banana 2 engine..."
         ):
           try:
             client = genai.Client(api_key=api_key)
@@ -165,14 +165,14 @@ with col1:
                 f" {negative_prompt}"
             )
 
-            # Auto-retry loop to handle 503 / busy exceptions
+            # Auto-retry loop to handle 429/503 limits gracefully
             response = None
             max_retries = 3
             for attempt in range(max_retries):
               try:
-                # Use dedicated image generation endpoint model configuration
+                # Use gemini-3.1-flash-image-preview (Nano Banana 2)
                 response = client.models.generate_content(
-                    model="gemini-2.5-flash-image",
+                    model="gemini-3.1-flash-image-preview",
                     contents=full_prompt,
                     config=types.GenerateContentConfig(
                         response_modalities=["IMAGE"],
@@ -184,9 +184,11 @@ with col1:
                 break
               except Exception as err:
                 if (
-                    "503" in str(err) or "UNAVAILABLE" in str(err)
+                    "429" in str(err)
+                    or "503" in str(err)
+                    or "RESOURCE_EXHAUSTED" in str(err)
                 ) and attempt < max_retries - 1:
-                  time.sleep(2 * (attempt + 1))
+                  time.sleep(5 * (attempt + 1))  # Back off for rate limits
                   continue
                 else:
                   raise err
@@ -221,12 +223,15 @@ with col1:
 
             if not image_found:
               st.warning(
-                  "No image data returned from the model. Please adjust your"
-                  " prompt and try again."
+                  "No image data returned from the model. Please check your"
+                  " project quota limits at Google AI Studio."
               )
 
           except Exception as e:
-            st.error(f"Generation error: {e}")
+            st.error(
+                f"Generation error: {e}. Check your project billing or rate"
+                " limits on aistudio.google.com."
+            )
     else:
       st.info(
           "👉 Use the **AI Prompt Maker** on the sidebar to build your idea or"
@@ -238,9 +243,9 @@ with col2:
   st.markdown(
       """
     <div class="metric-card">
-        <b style="color: #ec4899;">Model:</b> Gemini Image Engine<br>
+        <b style="color: #ec4899;">Model:</b> Gemini 3.1 Flash Image (Nano Banana 2)<br>
         <b style="color: #8b5cf6;">Feature:</b> Prompt Maker + Native Image Generator<br>
-        <b style="color: #3b82f6;">Cost:</b> 100% Free API Tier
+        <b style="color: #3b82f6;">Tier:</b> Free / Standard Quota
     </div>
     """,
       unsafe_allow_html=True,
